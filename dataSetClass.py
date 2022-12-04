@@ -5,7 +5,8 @@ import torch
 
 featureCount = leafCount
 outputCount = nodeCount - 1
-swap = False 
+columns = featureCount + outputCount
+swap = False
 if swap: 
     featureCount, outputCount = outputCount, featureCount
 print(featureCount, outputCount)
@@ -13,7 +14,8 @@ print(featureCount, outputCount)
 class MyDataset(Dataset):
     def __init__(self, fileName):
         print(fileName)
-        self.dataset = np.load(fileName, mmap_mode='r')
+        self.dataset = np.memmap(fileName, dtype = 'float64', mode='r')
+        self.dataset.resize((int(self.dataset.shape[0]/columns), columns))
         self.dataset = torch.FloatTensor(self.dataset)
         if swap:
             self.X = self.dataset[:, outputCount:]

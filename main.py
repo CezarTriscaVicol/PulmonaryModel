@@ -13,7 +13,7 @@ import scipy as sp
 xp = np # or cp
 spx = sp # or cpx.scipy
 
-nodeCount = 1024
+nodeCount = 16
 leafCount = math.ceil(nodeCount/2)
 firstLeaf = nodeCount - leafCount
 
@@ -272,11 +272,14 @@ print("Global cycle count was:", globalCycleCount)
 
 currentFigureNumber = 0 
 
-def printCurrentLung(auxG, figureNumber = 0):
-    print("Printing Lung: ", figureNumber)
+def printCurrentLung(auxG):
+    global currentFigureNumber
+    currentFigureNumber = currentFigureNumber + 1
+    print("Printing Current Lung: ", currentFigureNumber)
     stabilizeVolume(currentG = auxG)
-    computeCycle(currentG = auxG, cycleCount = 3, printValues = True)
-    fig = plt.figure(figureNumber, figsize = (20, 10)) 
+    cycleCount = 1
+    computeCycle(currentG = auxG, cycleCount = cycleCount, printValues = True)
+    fig = plt.figure(currentFigureNumber, figsize = (20, 10)) 
     fig.suptitle("Graphs for Healthy Lungs")
     fig.tight_layout()
     pressureAcinar = fig.add_subplot(2, 3, 1)
@@ -285,8 +288,8 @@ def printCurrentLung(auxG, figureNumber = 0):
     pressureAcinar.set_xlabel("s")
     pressureAcinar.plot(timeList, auxG.nodes[nodeCount/2]['Pfunction'])
     pressureAcinar.plot(timeList, xp.full(len(timeList), Pat))
-    for i in range(1,6):
-        pressureAcinar.axvline(x=i*2, color='black', linestyle='--')
+    for i in range(1,cycleCount*4):
+        pressureAcinar.axvline(x=i, color='black', linestyle='--')
 
     pressureAll = fig.add_subplot(2, 3, 2)
     pressureAll.title.set_text("Pressure at all depths")
@@ -294,36 +297,66 @@ def printCurrentLung(auxG, figureNumber = 0):
     pressureAll.set_xlabel("s")
     for i in oneEachDepth: pressureAll.plot(timeList, auxG.nodes[i]['Pfunction'])
     pressureAll.plot(timeList, xp.full(len(timeList), Pat))
-    for i in range(1,6):
-        pressureAll.axvline(x=i*2, color='black', linestyle='--')
+    for i in range(1,cycleCount*4):
+        pressureAll.axvline(x=i, color='black', linestyle='--')
 
     volumeAcinar = fig.add_subplot(2, 3, 3)
     volumeAcinar.title.set_text("Acinar volume")
     volumeAcinar.set_ylabel("L")
     volumeAcinar.set_xlabel("s")
     volumeAcinar.plot(timeList, auxG.nodes[nodeCount/2]['Vfunction'])
-    for i in range(1,6):
-        volumeAcinar.axvline(x=i*2, color='black', linestyle='--')
+    for i in range(1,cycleCount*4):
+        volumeAcinar.axvline(x=i, color='black', linestyle='--')
 
     branchFlow = fig.add_subplot(2, 3, 4)
     branchFlow.title.set_text("Branch flow")
     branchFlow.set_ylabel("m^3/s")
     branchFlow.set_xlabel("s")
     for i in oneEachDepth: plt.plot(timeList, auxG[math.floor(i/2)][i]['Qfunction'])
-    for i in range(1,6):
-        branchFlow.axvline(x=i*2, color='black', linestyle='--')
+    for i in range(1,cycleCount*4):
+        branchFlow.axvline(x=i, color='black', linestyle='--')
 
     pleuralPressure = fig.add_subplot(2, 3, 5)
     pleuralPressure.title.set_text("Pleural pressure")
     pleuralPressure.set_ylabel("cmH2O")
     pleuralPressure.set_xlabel("s")
     pleuralPressure.plot(timeList, PplList)
-    for i in range(1,6):
-        pleuralPressure.axvline(x=i*2, color='black', linestyle='--')
+    for i in range(1,cycleCount*4):
+        pleuralPressure.axvline(x=i, color='black', linestyle='--')
 
     global healthyVolumeList
     healthyVolumeList = volumeList
-    print("Finished Printing Lung: ", figureNumber)
+    print("Finished Printing Lung: ", currentFigureNumber)
+
+def printReducedLung(auxG):
+    global currentFigureNumber
+    currentFigureNumber = currentFigureNumber + 1
+    print("Printing Reduced Lung: ", currentFigureNumber)
+    stabilizeVolume(currentG = auxG)
+    cycleCount = 1
+    computeCycle(currentG = auxG, cycleCount = cycleCount, printValues = True)
+    fig = plt.figure(currentFigureNumber, figsize = (10, 4)) 
+    fig.suptitle("Graphs for "+str(leafCount)+" terminal branches")
+
+    volumeAcinar = fig.add_subplot(1, 2, 1)
+    volumeAcinar.title.set_text("Acinar volume")
+    volumeAcinar.set_ylabel("mm^3")
+    volumeAcinar.set_xlabel("s")
+    auxVolumes = auxG.nodes[nodeCount/2]['Vfunction']
+    volumeAcinar.plot(timeList, np.multiply(auxVolumes, 1000000))
+    for i in range(1,cycleCount*4):
+        volumeAcinar.axvline(x=i, color='black', linestyle='--')
+
+    branchFlow = fig.add_subplot(1, 2, 2)
+    branchFlow.title.set_text("Branch flow")
+    branchFlow.set_ylabel("L/s")
+    branchFlow.set_xlabel("s")
+    for i in range(1,2): 
+        auxFlow = auxG[math.floor(i/2)][i]['Qfunction']
+        plt.plot(timeList, np.multiply(auxFlow, 1000))
+    for i in range(1,cycleCount*4):
+        branchFlow.axvline(x=i, color='black', linestyle='--')
+
 def computeUnhealthyLung(auxG, unhealthyBranch = 1, restrictionFactor = 2):
     print("Computing unhealthy lung "+str(unhealthyBranch))
     terminalHealthyBranch = int(nodeCount/2 + nodeCount/4)
@@ -392,15 +425,14 @@ def computeUnhealthyLung(auxG, unhealthyBranch = 1, restrictionFactor = 2):
     terminalFlows.plot(timeList, auxG[terminalHealthyBranch][fatherList[terminalHealthyBranch-1]]['Qfunction'], color = 'g')
     for i in range(1,6):
         terminalFlows.axvline(x=i*2, color='black', linestyle='--')
+
 def computeGenericLung(auxG, restrictions = xp.full(nodeCount-1, 1), printLung = False, multiThreading = False):
     for i in nodeList:
         auxG[i][fatherList[i-1]]['Diameter'] = auxG[i][fatherList[i-1]]['Diameter'] * restrictions[i-1]
     stabilizeVolume(auxG, multiThreading = multiThreading)
     maxVolumeList = computeCycle(currentG = auxG, getMaxVolumes = True, multiThreading = multiThreading)
     if(printLung): 
-        global currentFigureNumber
-        printCurrentLung(auxG = auxG, figureNumber = currentFigureNumber)
-        currentFigureNumber = currentFigureNumber + 1
+        printCurrentLung(auxG = auxG)
     return maxVolumeList
     
 import warnings
@@ -438,7 +470,7 @@ def multiThreadGenericLung(auxG, restrictions, threadCount = 4):
     print('Execution time = %.6f seconds' % (end_time-start_time))
     return np.concatenate(list(map(list, returnLists)), axis = 0)
 
-#computeGenericLung(auxG = G.copy(), printLung = True)
+#auxyz = printReducedLung(auxG = G.copy())
 #computeUnhealthyLung(auxG = G.copy(), unhealthyBranch = 2, restrictionFactor = 2)
 #computeUnhealthyLung(auxG = G.copy(), unhealthyBranch = 4, restrictionFactor = 2)
 #computeUnhealthyLung(auxG = G.copy(), unhealthyBranch = 8, restrictionFactor = 2)

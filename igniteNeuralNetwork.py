@@ -17,7 +17,8 @@ import math
 featureCount = dataSetClass.featureCount
 outputCount = dataSetClass.outputCount
 
-fileName = 'lung'+str(main.nodeCount)+'_continuous.npy'
+case = 2
+fileName = 'datasets/lung'+str(main.nodeCount)+'_continuous'+str(case)+'.npy'
 
 dataset = dataSetClass.MyDataset(fileName)
 
@@ -39,11 +40,11 @@ train_indices, val_indices = indices[split:], indices[:split]
 train_sampler = SubsetRandomSampler(train_indices)
 valid_sampler = SubsetRandomSampler(val_indices)
 
-epochs = 1
-train_batch_size = 100
-val_batch_size = 100
+epochs = 2
+train_batch_size = 10000
+val_batch_size = 10000
 log_interval = int(dataset.__len__() / (train_batch_size*5))
-save_checkpoint = False
+save_checkpoint = True
 load_checkpoint = False
 
 model = Net()
@@ -56,6 +57,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 criterion = nn.MSELoss()
 test_losses = []
 train_losses = []
+iteration_train_losses = []
 
 trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 
@@ -65,19 +67,21 @@ val_metrics = {
 evaluator = create_supervised_evaluator(
     model, metrics=val_metrics, device=device)
 
-
 @trainer.on(Events.ITERATION_COMPLETED(every=log_interval))
-def log_training_loss(trainer):
-    print(f"Epoch[{trainer.state.epoch}] Loss: {trainer.state.output:.10f}")
-
+def log_training(trainer):
+    batch_loss = trainer.state.output
+    e = trainer.state.epoch
+    n = trainer.state.max_epochs
+    i = trainer.state.iteration
+    print(f"Epoch {e}/{n} : {i} - batch loss: {batch_loss}")
+    iteration_train_losses.append(trainer.state.output)
 
 @trainer.on(Events.EPOCH_COMPLETED)
 def log_training_results(trainer):
     evaluator.run(train_loader)
     metrics = evaluator.state.metrics
     train_losses.append(metrics['mse'])
-    print(
-        f"Training Results - Epoch: {trainer.state.epoch} Avg loss: {metrics['mse']:.10f}")
+    print(f"Training Results - Epoch: {trainer.state.epoch} Avg loss: {metrics['mse']:.10f}")
 
 @trainer.on(Events.EPOCH_COMPLETED)
 def log_validation_results(trainer):
@@ -86,13 +90,9 @@ def log_validation_results(trainer):
     test_losses.append(metrics['mse'])
     print(f"Validation Results - Epoch: {trainer.state.epoch} Avg loss: {metrics['mse']:.10f}")
 
-# @trainer.on(Events.ITERATION_COMPLETED)
-# def log_training_loss(trainer):
-#    print(f"Epoch[{trainer.state.epoch}], Iter[{trainer.state.iteration}] Loss: {trainer.state.output:.10f}")
-
 
 to_save = {'model': model, 'optimizer': optimizer, 'trainer': trainer}
-checkpoint_dir = "checkpoints/"
+checkpoint_dir = "checkpoints/"+str(main.nodeCount)+"_continuous"+str(case)+"/"
 
 if save_checkpoint:
     checkpoint = Checkpoint(
@@ -104,31 +104,56 @@ if save_checkpoint:
     evaluator.add_event_handler(Events.COMPLETED, checkpoint)
 
 if load_checkpoint:
-    checkpoint_fp = checkpoint_dir + "checkpoint_10.pt"
+    checkpoint_fp = checkpoint_dir + "checkpoint_200.pt"
     checkpoint = torch.load(checkpoint_fp, map_location=device)
     Checkpoint.load_objects(to_load=to_save, checkpoint=checkpoint)
 
-# for stepp in range(100):
-trainer.run(train_loader, max_epochs=epochs)
+for stepp in range(100):
+    trainer.run(train_loader, max_epochs=epochs)
 
+plt.figure(1)
 plt.plot(train_losses, label='Training loss')
 plt.plot(test_losses, label='Validation loss')
 
-sample_results = False 
+plt.figure(2)
+plt.plot(iteration_train_losses, label='Training loss')
 
+sample_results = True 
 sample_count = 7*50
 
-auxx = np.load(fileName, mmap_mode='r')
+auxx = np.memmap(fileName, mode='r', dtype = 'float64')
+auxx.resize((int(auxx.shape[0]/dataSetClass.columns), dataSetClass.columns))
 auxx = np.asarray(auxx[:sample_count].tolist())
 X_test = auxx[:,:featureCount]
 y_test = auxx[:,featureCount:]
+if(dataSetClass.swap):
+    X_test = auxx[:,outputCount:]
+    y_test = auxx[:,:outputCount]
 X_test = torch.FloatTensor(X_test)
 y_test = torch.FloatTensor(y_test)
 
 model.to('cpu')
 y_test_hat = model.forward(X_test[:sample_count])
 for i in range(0, 2):
-    print(y_test_hat[i].detach().numpy())
+    print("TEST:",y_test_hat[i].detach().numpy())
+    print("TRUE:",y_test[i].detach().numpy())
+    print("DIFF:",np.subtract(y_test[i].detach().numpy(),y_test_hat[i].detach().numpy()))
+
+if(dataSetClass.swap):
+    scaled_mean = 0
+    scaled_variance = 0
+    scaled_max = 0
+    for i in range(0, 1000):
+        scaled_mean += np.mean(np.divide(y_test.detach().numpy(), np.abs(np.subtract(y_test.detach().numpy(),y_test_hat.detach().numpy()))))
+        scaled_variance += np.divide(np.mean(y_test_hat.detach().numpy()), np.subtract(np.max(y_test.detach().numpy()),np.min(y_test.detach().numpy())))
+        scaled_max += np.max(np.divide(y_test.detach().numpy(), np.abs(np.subtract(y_test.detach().numpy(),y_test_hat.detach().numpy()))))
+    scaled_mean /= 1000
+    scaled_variance /= 1000
+    scaled_max /= 1000
+
+    print("Mean:",scaled_mean)
+    print("Variance:",scaled_variance)
+    print("Max:",scaled_max)
 
 if sample_results:
 
@@ -139,8 +164,7 @@ if sample_results:
         sum += auxx
     print("mean loss:", sum/sample_count)
     y_test_hat = y_test_hat.detach().numpy()
-    recomputedMaxValuesList = main.multiThreadGenericLung(
-        auxG=main.G.copy(), restrictions=y_test_hat, threadCount=7)
+    recomputedMaxValuesList = main.multiThreadGenericLung(auxG=main.G.copy(), restrictions=y_test_hat, threadCount=7)
     scaled_mean_ = 0
     scaled_variance_ = 0
     scaled_max_ = 0
