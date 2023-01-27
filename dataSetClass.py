@@ -2,30 +2,31 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from main import nodeCount, leafCount
 import torch
+import main
 
 featureCount = leafCount
-outputCount = nodeCount - 1
-columns = featureCount + outputCount
-swap = False
-if swap: 
-    featureCount, outputCount = outputCount, featureCount
+outputCount = -1
+if main.nodeCount == 128:
+    outputCount = 15
+elif main.nodeCount == 1024:
+    outputCount = 116
+columns = featureCount + nodeCount - 1
 print(featureCount, outputCount)
 
 class MyDataset(Dataset):
     def __init__(self, fileName):
         print(fileName)
         self.dataset = np.memmap(fileName, dtype = 'float64', mode='r')
-        self.dataset.resize((int(self.dataset.shape[0]/columns), columns))
-        self.dataset = torch.FloatTensor(self.dataset)
-        if swap:
-            self.X = self.dataset[:, outputCount:]
-            self.y = self.dataset[:, :outputCount]
-        else:
-            self.X = self.dataset[:, :featureCount]
-            self.y = self.dataset[:, featureCount:]
+        self.dataset.shape = (-1, columns)
+        self.dataset = np.float32(self.dataset)
+
+        self.dataset = torch.from_numpy(self.dataset)
+        self.X = self.dataset[:, :featureCount]
+        self.y = self.dataset[:, featureCount:featureCount+outputCount]
     def __len__(self):
         return self.dataset.shape[0]
+        #return 100000
     def __getitem__(self, idx):
-        x = self.X[idx]
+        X = self.X[idx]
         y = self.y[idx]
-        return x, y
+        return X, y

@@ -10,10 +10,7 @@ import statistics
 import operator
 import scipy as sp
 
-xp = np # or cp
-spx = sp # or cpx.scipy
-
-nodeCount = 16
+nodeCount = 128
 leafCount = math.ceil(nodeCount/2)
 firstLeaf = nodeCount - leafCount
 
@@ -21,13 +18,13 @@ readFromFile = True
 saveToFile = False
 
 if(not readFromFile):
-    initialPressureValues = xp.full(nodeCount-1, 1033)
-    initialFlowValues = xp.full(nodeCount-1, 0)
-    initialVolumeValues = xp.full(leafCount, (2.5)/leafCount)
+    initialPressureValues = np.full(nodeCount-1, 1033)
+    initialFlowValues = np.full(nodeCount-1, 0)
+    initialVolumeValues = np.full(leafCount, (2.5)/leafCount)
     initialApl = -15
     initialRpl = 5  
 else:
-    input = xp.load('initialInputs/initialInputs'+str(nodeCount)+'.npy')
+    input = np.load('initialInputs/initialInputs'+str(nodeCount)+'.npy')
     initialPressureValues = input[2:nodeCount+1]
     initialFlowValues = input[nodeCount+1:2*nodeCount]
     initialVolumeValues = input[2*nodeCount:]
@@ -52,12 +49,12 @@ RdS = 1.4              # anti-log of the slope of the airway diameter plotted ag
 Compliance = (2.5/(nodeCount/2))/(Pat + 15) # L/cmh2o  Compliance of the acinar Region
 
 G = nx.Graph()
-nodeList = xp.arange(1, nodeCount)              # List of all nodes/branches without root
-terminalList = xp.arange(firstLeaf, nodeCount)  # List of all terminal nodes/branches
-nonTerminalList = xp.arange(1, firstLeaf)       # List of all non-terminal nodes/branches (without root)
-fatherList = xp.concatenate((xp.array([0]), xp.repeat(xp.arange(1, firstLeaf), 2))) # List of all fathers
-leftSonList = xp.add(nonTerminalList, nonTerminalList)   # List of all left sons
-rightSonList = xp.add(leftSonList, 1)                    # List of all right sons 
+nodeList = np.arange(1, nodeCount)              # List of all nodes/branches without root
+terminalList = np.arange(firstLeaf, nodeCount)  # List of all terminal nodes/branches
+nonTerminalList = np.arange(1, firstLeaf)       # List of all non-terminal nodes/branches (without root)
+fatherList = np.concatenate((np.array([0]), np.repeat(np.arange(1, firstLeaf), 2))) # List of all fathers
+leftSonList = np.add(nonTerminalList, nonTerminalList)   # List of all left sons
+rightSonList = np.add(leftSonList, 1)                    # List of all right sons 
 oneEachDepth = []
 val = 1
 while(val < nodeCount):
@@ -83,7 +80,7 @@ maxStrahler = G[0][1]['Strahler']
 G[0][1]['Length'] = 0.05     #m Length of the longest branch
 for i in nodeList[1:]: G[i][fatherList[i-1]]['Length'] = G[fatherList[i-1]][fatherList[fatherList[i-1]-1]]['Length'] * 0.4
 
-strahlerToDiameter = xp.exp(xp.add(xp.multiply(xp.subtract(xp.arange(0, maxStrahler + 1), maxStrahler), math.log(RdS)), math.log(maxDiameter))) # diameter of branch with given Strahler number
+strahlerToDiameter = np.exp(np.add(np.multiply(np.subtract(np.arange(0, maxStrahler + 1), maxStrahler), math.log(RdS)), math.log(maxDiameter))) # diameter of branch with given Strahler number
 
 for i in nodeList:
     G[fatherList[i-1]][i]['Diameter'] = strahlerToDiameter[G[fatherList[i-1]][i]['Strahler']]
@@ -92,7 +89,7 @@ for i in nodeList:
 def recomputeqConst(currentG): 
     aux, auy, lengths = zip(*currentG.edges.data('Length'))
     aux, auy, diameters = zip(*currentG.edges.data('Diameter'))
-    return xp.divide(xp.multiply(xp.sqrt(lengths), 64 * correctionConstant * math.sqrt(miu * ro / (math.pi ** 3))), xp.power(diameters, 4))
+    return np.divide(np.multiply(np.sqrt(lengths), 64 * correctionConstant * math.sqrt(miu * ro / (math.pi ** 3))), np.power(diameters, 4))
 
 computedVmin = 10   # L
 computedVmax = 0.1  # L
@@ -105,34 +102,34 @@ globalCycleCount = 0
 N = (nodeCount - 1) + (firstLeaf - 1) + 2 * leafCount + 1 # number of equations
 M = N                  # number of variables
 
-J = spx.sparse.lil_matrix((N,M))
+J = sp.sparse.lil_matrix((N,M))
 
 # equations: 0 to nodeCount-2: Pressure driven flow 
-rows = xp.arange(0, nodeCount-1)
-fatherNodePressures = xp.add(fatherList, 0)
-nodePressures = xp.add(nodeList, 0)
+rows = np.arange(0, nodeCount-1)
+fatherNodePressures = np.add(fatherList, 0)
+nodePressures = np.add(nodeList, 0)
 J[rows, fatherNodePressures] = 1
 J[rows, nodePressures] = -1
 
 # equations: nodeCount-1 to nodeCount+firstLeaf-3: Conservation of flow
-rows = xp.arange(nodeCount-1, nodeCount+firstLeaf-2)
-nonTerminalNodeFlows = xp.add(nonTerminalList, nodeCount-1)
-leftSonFlows = xp.add(leftSonList, nodeCount-1)
-rightSonFlows = xp.add(rightSonList, nodeCount-1)
+rows = np.arange(nodeCount-1, nodeCount+firstLeaf-2)
+nonTerminalNodeFlows = np.add(nonTerminalList, nodeCount-1)
+leftSonFlows = np.add(leftSonList, nodeCount-1)
+rightSonFlows = np.add(rightSonList, nodeCount-1)
 J[rows, nonTerminalNodeFlows] = 1
 J[rows, leftSonFlows] = -1
 J[rows, rightSonFlows] = -1
 
 # equations: nodeCount+firstleaf-1 to 2*nodeCount-3: Expansion of acinar region by flow
-rows = xp.arange(nodeCount+firstLeaf-2, 2*nodeCount-2)
-terminalNodeVolumes = xp.add(terminalList, nodeCount+(nodeCount-1)-firstLeaf)
-terminalNodeFlows = xp.add(terminalList, nodeCount-1)
+rows = np.arange(nodeCount+firstLeaf-2, 2*nodeCount-2)
+terminalNodeVolumes = np.add(terminalList, nodeCount+(nodeCount-1)-firstLeaf)
+terminalNodeFlows = np.add(terminalList, nodeCount-1)
 J[rows, terminalNodeVolumes] = 1
 J[rows, terminalNodeFlows] = -1000*0.1
 
 # equations: 2*nodeCount-2 to 2*nodeCount-3+leafCount: Expansion of acinar region drive by flow equations 2
-rows = xp.arange(2*nodeCount-2, 2*nodeCount-2+leafCount)
-terminalNodePressures = xp.add(terminalList, 0)
+rows = np.arange(2*nodeCount-2, 2*nodeCount-2+leafCount)
+terminalNodePressures = np.add(terminalList, 0)
 J[rows, terminalNodePressures] = 1
 J[rows, terminalNodeVolumes] = - (1/Compliance)
 
@@ -171,48 +168,48 @@ def computeCycle(currentG, cycleCount = 1, dt = 0.1, printValues = False, writeO
     aux, pressures =  zip(*currentG.nodes(data = 'P'))
     aux, auy, flows = zip(*currentG.edges.data('Q'))
     aux, volumes =  zip(*currentG.nodes(data = 'V'))
-    oldx = xp.array(pressures + flows + volumes[firstLeaf:])
+    oldx = np.array(pressures + flows + volumes[firstLeaf:])
 
     maxVolumeList = []
     if(getMaxVolumes):
         maxVolumeList = volumes[firstLeaf:]
 
-    nodeFlows = xp.add(nodeList, len(pressures)-1)
+    nodeFlows = np.add(nodeList, len(pressures)-1)
     
     def F(x):  return \
-                    xp.concatenate((xp.subtract(xp.subtract(x[fatherNodePressures], x[nodePressures]), xp.multiply(qConst, xp.multiply(x[nodeFlows], xp.sqrt(xp.abs(x[nodeFlows]))))) \
-                   ,xp.subtract(xp.subtract(x[nonTerminalNodeFlows], x[leftSonFlows]), x[rightSonFlows]) \
-                   ,xp.subtract(xp.subtract(x[terminalNodeVolumes], xp.multiply(x[terminalNodeFlows], 1000*dt)), oldx[terminalNodeVolumes]) \
-                   ,xp.subtract(xp.subtract(x[terminalNodePressures], xp.multiply(x[terminalNodeVolumes], 1/Compliance)), Ppl), xp.array([x[0]-Pat])))
+                    np.concatenate((np.subtract(np.subtract(x[fatherNodePressures], x[nodePressures]), np.multiply(qConst, np.multiply(x[nodeFlows], np.sqrt(np.abs(x[nodeFlows]))))) \
+                   ,np.subtract(np.subtract(x[nonTerminalNodeFlows], x[leftSonFlows]), x[rightSonFlows]) \
+                   ,np.subtract(np.subtract(x[terminalNodeVolumes], np.multiply(x[terminalNodeFlows], 1000*dt)), oldx[terminalNodeVolumes]) \
+                   ,np.subtract(np.subtract(x[terminalNodePressures], np.multiply(x[terminalNodeVolumes], 1/Compliance)), Ppl), np.array([x[0]-Pat])))
 
     for step in range(0, iterations):
         newx = oldx
         Ppl = PulmonarPressure(step * dt)
         Fnewx = F(newx)
-        while(max(xp.abs(Fnewx)) > eps):   
-            nodeFlows = xp.add(nodeList, len(pressures)-1)
-            J[xp.arange(0, nodeCount-1), nodeFlows] = xp.multiply(xp.multiply((-3/2), qConst), xp.sqrt(xp.abs(newx[nodeFlows])))
+        while(max(np.abs(Fnewx)) > eps):   
+            nodeFlows = np.add(nodeList, len(pressures)-1)
+            J[np.arange(0, nodeCount-1), nodeFlows] = np.multiply(np.multiply((-3/2), qConst), np.sqrt(np.abs(newx[nodeFlows])))
             #print("Count of non zeroes in Jacobian:", len(spx.sparse.find(J)[0]))
             #print("Size of  Jacobian:", N*M)
             #print("percentage of nonzeroes", 100 * len(spx.sparse.find(J)[0]) / (N*M))
-            #dx = spx.sparse.linalg.spsolve(J, xp.negative(Fnewx))
-            #dx, foundResult = spx.sparse.linalg.bicg(A = J, b = xp.negative(Fnewx), x0 = xp.zeros(newx.shape[0]),tol = 1e-10)
+            #dx = spx.sparse.linalg.spsolve(J, np.negative(Fnewx))
+            #dx, foundResult = spx.sparse.linalg.bicg(A = J, b = np.negative(Fnewx), x0 = np.zeros(newx.shape[0]),tol = 1e-10)
             #print(dx)
-            B = spx.sparse.linalg.splu(J)
-            dx = B.solve(xp.negative(Fnewx))
-            newx = xp.add(newx, dx)
+            B = sp.sparse.linalg.splu(J)
+            dx = B.solve(np.negative(Fnewx))
+            newx = np.add(newx, dx)
             #print(newx)
             Fnewx = F(newx)
             #print(Fnewx)
             #print("RESULT:", foundResult)
-            #print(max(xp.abs(Fnewx)))
+            #print(max(np.abs(Fnewx)))
         #print("NEW")
         oldx = newx
         currentVolume = sum(oldx[terminalNodeVolumes])
         computedVmax = max(computedVmax, currentVolume)
         computedVmin = min(computedVmin, currentVolume)
         if(getMaxVolumes):
-            maxVolumeList = xp.maximum(maxVolumeList, oldx[terminalNodeVolumes])
+            maxVolumeList = np.maximum(maxVolumeList, oldx[terminalNodeVolumes])
             
         if(not multiThreading):
             if(printValues):
@@ -225,8 +222,8 @@ def computeCycle(currentG, cycleCount = 1, dt = 0.1, printValues = False, writeO
 
     if(writeOver):
         nx.set_node_attributes(currentG, dict(zip(nodeList, oldx[nodeList])), name = 'P')
-        nx.set_edge_attributes(currentG, dict(zip(zip(fatherList, nodeList), oldx[xp.add(nodeList, len(pressures)-1)])), name = 'Q')
-        nx.set_node_attributes(currentG, dict(zip(terminalList, oldx[xp.add(terminalList, len(pressures)+len(flows)-firstLeaf)])), name = 'V')
+        nx.set_edge_attributes(currentG, dict(zip(zip(fatherList, nodeList), oldx[np.add(nodeList, len(pressures)-1)])), name = 'Q')
+        nx.set_node_attributes(currentG, dict(zip(terminalList, oldx[np.add(terminalList, len(pressures)+len(flows)-firstLeaf)])), name = 'V')
 
     return maxVolumeList
 
@@ -236,11 +233,11 @@ def stabilizeVolume(currentG, multiThreading = False):
     computeCycle(currentG = currentG, writeOver = True, multiThreading = multiThreading)
     aux, newVolume =  zip(*currentG.nodes(data = 'V'))
     newVolume = newVolume[firstLeaf:]
-    while(max(xp.abs(xp.subtract(oldVolume, newVolume))) > tol):
+    while(max(np.abs(np.subtract(oldVolume, newVolume))) > tol):
         oldVolume = newVolume
         computeCycle(currentG = currentG, writeOver = True, multiThreading = multiThreading)
         aux, newVolume =  zip(*currentG.nodes(data = 'V'))
-        newVolume = newVolume
+        newVolume = newVolume[firstLeaf:]
        
 print("APL is initially:", Apl)
 print("RPL is initially:", Rpl)
@@ -263,7 +260,7 @@ aux, initialVolumes =    zip(*G.nodes(data = 'V'))
 initialVolumes = initialVolumes[firstLeaf:]
 
 if saveToFile:
-    xp.save('initialInputs/initialInputs'+str(nodeCount)+'.npy', xp.concatenate(([Apl, Rpl], initialPressures, initialFlows, initialVolumes)))
+    np.save('initialInputs/initialInputs'+str(nodeCount)+'.npy', np.concatenate(([Apl, Rpl], initialPressures, initialFlows, initialVolumes)))
 
 print("APL is finally:", Apl)
 print("RPL is finally:", Rpl)
@@ -287,7 +284,7 @@ def printCurrentLung(auxG):
     pressureAcinar.set_ylabel("cmH2O")
     pressureAcinar.set_xlabel("s")
     pressureAcinar.plot(timeList, auxG.nodes[nodeCount/2]['Pfunction'])
-    pressureAcinar.plot(timeList, xp.full(len(timeList), Pat))
+    pressureAcinar.plot(timeList, np.full(len(timeList), Pat))
     for i in range(1,cycleCount*4):
         pressureAcinar.axvline(x=i, color='black', linestyle='--')
 
@@ -296,7 +293,7 @@ def printCurrentLung(auxG):
     pressureAll.set_ylabel("cmH2O")
     pressureAll.set_xlabel("s")
     for i in oneEachDepth: pressureAll.plot(timeList, auxG.nodes[i]['Pfunction'])
-    pressureAll.plot(timeList, xp.full(len(timeList), Pat))
+    pressureAll.plot(timeList, np.full(len(timeList), Pat))
     for i in range(1,cycleCount*4):
         pressureAll.axvline(x=i, color='black', linestyle='--')
 
@@ -426,7 +423,7 @@ def computeUnhealthyLung(auxG, unhealthyBranch = 1, restrictionFactor = 2):
     for i in range(1,6):
         terminalFlows.axvline(x=i*2, color='black', linestyle='--')
 
-def computeGenericLung(auxG, restrictions = xp.full(nodeCount-1, 1), printLung = False, multiThreading = False):
+def computeGenericLung(auxG, restrictions = np.full(nodeCount-1, 1), printLung = False, multiThreading = False):
     for i in nodeList:
         auxG[i][fatherList[i-1]]['Diameter'] = auxG[i][fatherList[i-1]]['Diameter'] * restrictions[i-1]
     stabilizeVolume(auxG, multiThreading = multiThreading)

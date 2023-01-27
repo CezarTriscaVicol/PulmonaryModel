@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import main
 # setting the values
 # of n and p
-n = main.nodeCount
-p = 0.3
+n = 16
+p = 0.2
 # defining list of r values
 r_values = list(range(n + 1))
 # list of pmf values
