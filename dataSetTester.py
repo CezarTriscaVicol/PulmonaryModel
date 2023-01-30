@@ -13,7 +13,7 @@ def check(volumes, restrictions):
         #print(restrictions)
         exit(0)    
 
-for case in [15]:
+for case in [13]:
     
     fileName = 'datasets/lung'+str(main.nodeCount)+'_continuous'+str(case)+'.npy'
     dataset = np.memmap(fileName, dtype = 'float64', mode='r')
@@ -23,7 +23,9 @@ for case in [15]:
 
     #def computeGenericLung(auxG, restrictions = np.full(nodeCount-1, 1), printLung = False, multiThreading = False):
     print("TESTING LUNG")
-    main.computeGenericLung(auxG = main.G.copy(), restrictions = dataset[np.random.randint(dataset.shape[0]), dataSetClass.featureCount:], printLung = True, multiThreading = False)
+    lung_cnt = 5
+    for i in range(lung_cnt):
+        main.computeGenericLung(auxG = main.G.copy(), restrictions = dataset[np.random.randint(dataset.shape[0]), dataSetClass.featureCount:], printLung = True, multiThreading = False)
 
     volumes = dataset[:,:dataSetClass.featureCount]
     restrictions = dataset[:,dataSetClass.featureCount:]

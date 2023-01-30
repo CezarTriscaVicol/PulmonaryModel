@@ -18,7 +18,7 @@ import time
 featureCount = dataSetClass.featureCount
 outputCount = dataSetClass.outputCount
 
-saveResults = True
+saveResults = False
 
 def shortToLong(restrictions):
     if main.nodeCount == 128:
@@ -36,7 +36,7 @@ def shortToLong(restrictions):
             longRestrictions[i+14-1] = longRestrictions[math.floor((i+14)/2)-1]
         return longRestrictions
 
-for case in range(16):
+for case in [10]:
     fileName = 'datasets/lung'+str(main.nodeCount)+'_continuous'+str(case)+'.npy'
 
     dataset = dataSetClass.MyDataset(fileName)
@@ -60,11 +60,11 @@ for case in range(16):
     valid_sampler = SubsetRandomSampler(val_indices)
 
     epochs = 120
-    train_batch_size = 1000          #1000
+    train_batch_size = 100          #1000
     val_batch_size = train_batch_size
     log_interval = 10
     learning_rate = 0.001           #0.004 
-    save_checkpoint = True
+    save_checkpoint = False
     load_checkpoint = False
 
     means = np.load('datasets/mean_variance/lung'+str(dataSetClass.nodeCount)+'_continuous'+str(case)+'_mean.npy')
@@ -103,19 +103,19 @@ for case in range(16):
         print(f"Epoch {e}/{n} : {i} - batch loss: {batch_loss}")
         iteration_train_losses.append(trainer.state.output)
 
-    @trainer.on(Events.EPOCH_COMPLETED)
-    def log_training_results(trainer):
-        evaluator.run(train_loader)
-        metrics = evaluator.state.metrics
-        train_losses.append(metrics['mse'])
-        print(f"Training Results - Epoch: {trainer.state.epoch} Avg loss: {metrics['mse']:.10f}")
+    #@trainer.on(Events.EPOCH_COMPLETED)
+    #def log_training_results(trainer):
+     #   evaluator.run(train_loader)
+     #   metrics = evaluator.state.metrics
+     #   train_losses.append(metrics['mse'])
+     #   print(f"Training Results - Epoch: {trainer.state.epoch} Avg loss: {metrics['mse']:.10f}")
 
-    @trainer.on(Events.EPOCH_COMPLETED)
-    def log_validation_results(trainer):
-        evaluator.run(val_loader)
-        metrics = evaluator.state.metrics
-        test_losses.append(metrics['mse'])
-        print(f"Validation Results - Epoch: {trainer.state.epoch} Avg loss: {metrics['mse']:.10f}")
+    #@trainer.on(Events.EPOCH_COMPLETED)
+    #def log_validation_results(trainer):
+    #    evaluator.run(val_loader)
+    #    metrics = evaluator.state.metrics
+    #    test_losses.append(metrics['mse'])
+    #    print(f"Validation Results - Epoch: {trainer.state.epoch} Avg loss: {metrics['mse']:.10f}")
 
 
     to_save = {'model': model, 'optimizer': optimizer, 'trainer': trainer}

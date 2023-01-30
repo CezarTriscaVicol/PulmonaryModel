@@ -301,7 +301,8 @@ def printCurrentLung(auxG):
     volumeAcinar.title.set_text("Acinar volume")
     volumeAcinar.set_ylabel("L")
     volumeAcinar.set_xlabel("s")
-    volumeAcinar.plot(timeList, auxG.nodes[nodeCount/2]['Vfunction'])
+    for new_node in range(int(nodeCount/2), nodeCount):
+        volumeAcinar.plot(timeList, auxG.nodes[new_node]['Vfunction'])
     for i in range(1,cycleCount*4):
         volumeAcinar.axvline(x=i, color='black', linestyle='--')
 

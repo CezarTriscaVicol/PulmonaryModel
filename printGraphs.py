@@ -12,7 +12,8 @@ for case in range(16):
     low_rest = high_rest - 0.2 
     current_fig = fig.add_subplot(4, 4, case+1)
     if case < 4:
-        current_fig.set_title("High: "+str('%.1f' % high_rest)+" | Low: "+str('%.1f' % low_rest), fontsize = 20)
+        current_fig.set_title("High: "+str('%.1f' % high_rest)+" | Low: "+str('%.1f' % low_rest))
+    current_fig.set_title(current_fig.get_title()+"\nCase: "+str(case), fontsize = 20)
     if case % 4 == 0:
         current_fig.set_ylabel("Diseased Count: "+str(disease_count) )
     max_diff_vector = np.load("graph_vectors/"+str(main.nodeCount)+"max_diff_vector"+str(case)+".npy")
@@ -30,6 +31,7 @@ for case in range(16):
     current_fig = fig.add_subplot(4, 4, case+1)
     if case < 4:
         current_fig.set_title("High: "+str('%.1f' % high_rest)+" | Low: "+str('%.1f' % low_rest), fontsize = 20)
+    current_fig.set_title(current_fig.get_title()+"\nCase: "+str(case), fontsize = 20)
     if case % 4 == 0:
         current_fig.set_ylabel("Diseased Count: "+str(disease_count) )
     maxScaledDifferences = np.load("graph_vectors/"+str(main.nodeCount)+"maxScaledDifferences"+str(case)+".npy")
@@ -47,6 +49,7 @@ for case in range(16):
     current_fig = fig.add_subplot(4, 4, case+1)
     if case < 4:
         current_fig.set_title("High: "+str('%.1f' % high_rest)+" | Low: "+str('%.1f' % low_rest), fontsize = 20)
+    current_fig.set_title(current_fig.get_title()+"\nCase: "+str(case), fontsize = 20)
     if case % 4 == 0:
         current_fig.set_ylabel("Diseased Count: "+str(disease_count) )
     train_losses = np.load('datasets/losses/lung'+str(dataSetClass.nodeCount)+'_continuous'+str(case)+'_train_losses.npy')

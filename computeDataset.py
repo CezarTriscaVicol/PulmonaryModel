@@ -12,8 +12,8 @@ import time
 import matplotlib.pyplot as plt
 warnings.filterwarnings("ignore")
 
-for curr_cnt in np.arange(50, 1000, 50, dtype=int):
-    for case in range(16):
+for curr_cnt in np.arange(50, 5000, 50, dtype=int):
+    for case in [10]:
         disease_count = 0
         low_rest = 0
         high_rest = 0
